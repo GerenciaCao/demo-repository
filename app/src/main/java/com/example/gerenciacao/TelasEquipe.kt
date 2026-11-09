@@ -224,7 +224,7 @@ fun TelaEditarMembro(id: Int, onVoltar: () -> Unit, onRemovido: () -> Unit) {
     var permissoes by remember(id) { mutableStateOf(original.permissoes) }
     var confirmarExclusao by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(Cores.Creme).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().background(Cores.Creme).statusBarsPadding().imePadding()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
         ) {
@@ -333,6 +333,7 @@ private fun DialogoExcluirConta(onCancelar: () -> Unit, onConfirmar: () -> Unit)
                 .fillMaxWidth()
                 .shadow(8.dp, RoundedCornerShape(20.dp))
                 .background(Cores.AzulDialogo, RoundedCornerShape(20.dp))
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
             Text("Excluir Conta", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
