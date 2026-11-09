@@ -1,6 +1,5 @@
 package com.example.gerenciacao.navegacao
 
-import android.R.attr.type
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

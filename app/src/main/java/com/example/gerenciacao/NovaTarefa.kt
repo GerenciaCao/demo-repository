@@ -107,7 +107,7 @@ fun NovaTarefaSheet(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
             )
             Column(
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                modifier = Modifier.weight(1f).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             ) {
                 CampoFormulario(titulo, { titulo = it }, "Título", fundo = Cores.CinzaCampo)
                 if (tentouSalvar && titulo.isBlank()) {

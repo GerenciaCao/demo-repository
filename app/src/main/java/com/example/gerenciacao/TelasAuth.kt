@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +61,7 @@ private fun FundoAuth(
                 .fillMaxHeight()
                 .padding(top = alturaTopo)
                 .background(Cores.Azul, RoundedCornerShape(topStart = 48.dp, topEnd = 48.dp))
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(horizontal = 30.dp, vertical = 32.dp),
@@ -80,7 +82,7 @@ fun TelaLogin(
     FundoAuth(alturaTopo = 250.dp, foto = R.drawable.pets_login) {
         Text("Login", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom)
         Spacer(Modifier.height(24.dp))
-        CampoCreme(email, { email = it }, "E-mail")
+        CampoCreme(email, { email = it }, "E-mail", teclado = KeyboardType.Email)
         Spacer(Modifier.height(24.dp))
         CampoCreme(senha, { senha = it }, "Senha", senha = true)
         Text(
@@ -134,9 +136,9 @@ fun TelaCadastro(
         Spacer(Modifier.height(24.dp))
         CampoCreme(nome, { nome = it }, "Nome")
         Spacer(Modifier.height(24.dp))
-        CampoCreme(email, { email = it }, "E-mail")
+        CampoCreme(email, { email = it }, "E-mail", teclado = KeyboardType.Email)
         Spacer(Modifier.height(24.dp))
-        CampoCreme(telefone, { telefone = it }, "Número de telefone")
+        CampoCreme(telefone, { telefone = it }, "Número de telefone", teclado = KeyboardType.Phone)
         Spacer(Modifier.height(24.dp))
         CampoCreme(senha, { senha = it }, "Senha", senha = true)
         Spacer(Modifier.height(24.dp))

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.FilterList
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -212,12 +214,14 @@ fun CampoCreme(
     rotulo: String,
     modifier: Modifier = Modifier,
     senha: Boolean = false,
+    teclado: KeyboardType = KeyboardType.Text,
 ) {
     TextField(
         value = valor,
         onValueChange = aoMudar,
         placeholder = { Text(rotulo, color = Cores.Marrom) },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = if (senha) KeyboardType.Password else teclado),
         visualTransformation = if (senha) PasswordVisualTransformation() else VisualTransformation.None,
         shape = RoundedCornerShape(10.dp),
         colors = TextFieldDefaults.colors(

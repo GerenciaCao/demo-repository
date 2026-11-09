@@ -2,11 +2,11 @@
 <resources>
     <color name="splash_laranja">#FFFFAD31</color>
 
-    <!-- Splash do sistema (Android 12+ e, pela biblioteca, também do 8 ao 11).
-         Se o tema do seu app tiver outro nome, ajuste postSplashScreenTheme. -->
+    <!-- Splash do sistema: só o fundo laranja (o ícone é transparente de propósito).
+         O logo e o nome aparecem na splash do app (TelaSplash.kt), sem "pulo" de posição. -->
     <style name="Theme.GerenciaCao.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_laranja</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icone</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_vazio</item>
         <item name="postSplashScreenTheme">@style/Theme.GerenciaCao.Splash</item>
     </style>
 </resources>
