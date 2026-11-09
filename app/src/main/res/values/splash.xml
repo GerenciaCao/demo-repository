@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="splash_laranja">#FFFFAD31</color>
+
+    <!-- Splash do sistema: só o fundo laranja (o ícone é transparente de propósito).
+         O logo e o nome aparecem na splash do app (TelaSplash.kt), sem "pulo" de posição. -->
+    <style name="Theme.GerenciaCao.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_laranja</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_vazio</item>
+        <item name="postSplashScreenTheme">@style/Theme.GerenciaCao.Splash</item>
+    </style>
+</resources>
