@@ -1,5 +1,7 @@
 package com.example.gerenciacao.navegacao
 
+import android.net.Uri
+import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -8,31 +10,44 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.gerenciacao.R
+import com.example.gerenciacao.domain.model.EstadoSessao
 import com.example.gerenciacao.ui.Cores
 import com.example.gerenciacao.ui.telas.*
+import com.example.gerenciacao.ui.viewmodel.AbrigoViewModel
+import com.example.gerenciacao.ui.viewmodel.AceitarConviteViewModel
+import com.example.gerenciacao.ui.viewmodel.CadastroViewModel
+import com.example.gerenciacao.ui.viewmodel.ConviteViewModel
+import com.example.gerenciacao.ui.viewmodel.EquipeViewModel
+import com.example.gerenciacao.ui.viewmodel.LoginViewModel
+import com.example.gerenciacao.ui.viewmodel.MembroViewModel
+import com.example.gerenciacao.ui.viewmodel.SessaoViewModel
+import com.example.gerenciacao.ui.viewmodel.viewModelDoApp
 
+/** Nomes das rotas (telas) do app. */
 object Rotas {
     const val SPLASH = "splash"
     const val LOGIN = "login"
     const val CADASTRO = "cadastro"
+    const val ACEITAR_CONVITE = "aceitar_convite"
     const val INICIO = "inicio"
     const val ANIMAIS = "animais"
     const val FINANCAS = "financas"
@@ -47,9 +62,14 @@ object Rotas {
     const val PERFIL_MEMBRO = "perfil_membro/{id}"
     const val EDITAR_MEMBRO = "editar_membro/{id}"
 
+    /** Rota da ficha de um animal. */
     fun ficha(id: Int) = "ficha/$id"
-    fun perfilMembro(id: Int) = "perfil_membro/$id"
-    fun editarMembro(id: Int) = "editar_membro/$id"
+
+    /** Rota do perfil de um membro (o id vem da API e é codificado para ir na rota). */
+    fun perfilMembro(id: String) = "perfil_membro/${Uri.encode(id)}"
+
+    /** Rota da edição de um membro. */
+    fun editarMembro(id: String) = "editar_membro/${Uri.encode(id)}"
 }
 
 private data class ItemBarra(val rota: String, val rotulo: String, @DrawableRes val icone: Int)
@@ -61,22 +81,59 @@ private val itensBarra = listOf(
     ItemBarra(Rotas.AGENDA, "Agenda", R.drawable.nav_agenda),
 )
 
+/** Troca de aba mantendo o estado de cada uma. */
 private fun NavController.irParaAba(rota: String) = navigate(rota) {
     popUpTo(Rotas.INICIO) { saveState = true }
     launchSingleTop = true
     restoreState = true
 }
 
+/** Vai para [rota] limpando toda a pilha (usado ao entrar e ao sair da conta). */
+private fun NavController.limparEIrPara(rota: String) = navigate(rota) {
+    popUpTo(graph.id) { inclusive = true }
+    launchSingleTop = true
+}
+
+/**
+ * Raiz do app: guarda o NavHost e reage à SESSÃO. Entrar/sair da conta muda a tela sozinho:
+ * as telas e ViewModels não precisam saber para onde ir (separação de responsabilidades).
+ */
 @Composable
 fun GerenciaCaoApp() {
     val nav = rememberNavController()
+    val contexto = LocalContext.current
+    val sessaoVm = viewModelDoApp { SessaoViewModel(it.authRepository) }
+    val sessao by sessaoVm.estado.collectAsStateWithLifecycle()
     val entrada by nav.currentBackStackEntryAsState()
     val rotaAtual = entrada?.destination?.route
+    var splashConcluida by remember { mutableStateOf(false) }
+    val usuario = (sessao as? EstadoSessao.Logado)?.usuario
+
+    // Navegação guiada pela sessão
+    LaunchedEffect(sessao, rotaAtual, splashConcluida) {
+        val s = sessao
+        val rotasPublicas = setOf(Rotas.LOGIN, Rotas.CADASTRO, Rotas.ACEITAR_CONVITE)
+        when {
+            rotaAtual == null -> Unit
+            rotaAtual == Rotas.SPLASH -> if (splashConcluida) {
+                when (s) {
+                    is EstadoSessao.Logado -> nav.limparEIrPara(Rotas.INICIO)
+                    EstadoSessao.SemSessao -> nav.limparEIrPara(Rotas.LOGIN)
+                    EstadoSessao.Verificando -> Unit
+                }
+            }
+            s is EstadoSessao.Logado && rotaAtual in rotasPublicas -> nav.limparEIrPara(Rotas.INICIO)
+            s is EstadoSessao.SemSessao && rotaAtual !in rotasPublicas -> nav.limparEIrPara(Rotas.LOGIN)
+        }
+    }
+
+    val irConfig: () -> Unit = { nav.navigate(Rotas.CONFIG) { launchSingleTop = true } }
+    val irPerfil: () -> Unit = { usuario?.let { nav.navigate(Rotas.perfilMembro(it.id)) { launchSingleTop = true } } }
+    val irParcerias: () -> Unit = { nav.navigate(Rotas.PARCERIAS) { launchSingleTop = true } }
+    val avisar: (String) -> Unit = { Toast.makeText(contexto, it, Toast.LENGTH_SHORT).show() }
+
     // Na Ficha Individual a barra continua visível, com a aba Animais marcada
     val abaAtual = if (rotaAtual == Rotas.FICHA) Rotas.ANIMAIS else rotaAtual
-    val irConfig: () -> Unit = { nav.navigate(Rotas.CONFIG) { launchSingleTop = true } }
-    val irPerfil: () -> Unit = { nav.navigate(Rotas.perfilMembro(EquipeMock.usuarioAtualId)) { launchSingleTop = true } }
-    val irParcerias: () -> Unit = { nav.navigate(Rotas.PARCERIAS) { launchSingleTop = true } }
 
     Scaffold(
         containerColor = Cores.Creme,
@@ -92,37 +149,45 @@ fun GerenciaCaoApp() {
             }
         },
     ) { padding ->
-        NavHost(
-            navController = nav,
-            startDestination = Rotas.SPLASH,
-            modifier = Modifier.padding(padding),
-        ) {
-            composable(Rotas.SPLASH) {
-                TelaSplash(
-                    onConcluir = {
-                        nav.navigate(Rotas.LOGIN) { popUpTo(Rotas.SPLASH) { inclusive = true } }
-                    },
-                )
-            }
+        NavHost(navController = nav, startDestination = Rotas.SPLASH, modifier = Modifier.padding(padding)) {
+
+            composable(Rotas.SPLASH) { TelaSplash(onConcluir = { splashConcluida = true }) }
+
             composable(Rotas.LOGIN) {
+                val vm = viewModelDoApp { LoginViewModel(it.authRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
                 TelaLogin(
-                    onAcessar = {
-                        nav.navigate(Rotas.INICIO) { popUpTo(Rotas.LOGIN) { inclusive = true } }
-                    },
+                    estado = ui,
+                    onEntrar = vm::entrar,
                     onCadastrar = { nav.navigate(Rotas.CADASTRO) },
-                    onEsqueceuSenha = { /* TODO: RF03 recuperação de senha */ },
+                    onEsqueceuSenha = { avisar("Recuperar senha estará disponível em breve.") },
+                    onTenhoConvite = { nav.navigate(Rotas.ACEITAR_CONVITE) },
+                    onSocial = { avisar("Entrar com $it estará disponível em breve.") },
                 )
             }
             composable(Rotas.CADASTRO) {
+                val vm = viewModelDoApp { CadastroViewModel(it.authRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
                 TelaCadastro(
-                    onConfirmar = {
-                        nav.navigate(Rotas.INICIO) { popUpTo(Rotas.LOGIN) { inclusive = true } }
-                    },
+                    estado = ui,
+                    onCadastrar = vm::cadastrar,
                     onIrParaLogin = { nav.popBackStack() },
+                    onSocial = { avisar("Cadastro com $it estará disponível em breve.") },
                 )
             }
+            composable(Rotas.ACEITAR_CONVITE) {
+                val vm = viewModelDoApp { AceitarConviteViewModel(it.authRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
+                TelaAceitarConvite(estado = ui, onAceitar = vm::aceitar, onVoltar = { nav.popBackStack() })
+            }
+
             composable(Rotas.INICIO) {
+                val abrigoVm = viewModelDoApp { AbrigoViewModel(it.abrigoRepository) }
+                val abrigo by abrigoVm.estado.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { abrigoVm.carregar() }
                 TelaInicio(
+                    nomeUsuario = usuario?.nome.orEmpty(),
+                    abrigo = abrigo.abrigo,
                     onVerAgenda = { nav.irParaAba(Rotas.AGENDA) },
                     onVerDados = { nav.irParaAba(Rotas.FINANCAS) },
                     onConfig = irConfig,
@@ -132,21 +197,19 @@ fun GerenciaCaoApp() {
                 )
             }
             composable(Rotas.ANIMAIS) {
-                TelaAnimais(
-                    onConfig = irConfig,
-                    onAvatar = irPerfil,
-                    onAbrirFicha = { id -> nav.navigate(Rotas.ficha(id)) },
-                )
+                TelaAnimais(onConfig = irConfig, onAvatar = irPerfil, onAbrirFicha = { id -> nav.navigate(Rotas.ficha(id)) })
             }
-            composable(
-                route = Rotas.FICHA,
-                arguments = listOf(navArgument("id") { type = NavType.IntType }),
-            ) { backEntry ->
-                TelaFicha(id = backEntry.arguments?.getInt("id") ?: 0, onVoltar = { nav.popBackStack() })
+            composable(Rotas.FICHA, arguments = listOf(navArgument("id") { type = NavType.IntType })) { be ->
+                TelaFicha(id = be.arguments?.getInt("id") ?: 0, onVoltar = { nav.popBackStack() })
             }
-            composable(Rotas.CONEXOES) { TelaConexao(onVoltar = { nav.popBackStack() }) }
             composable(Rotas.FINANCAS) { TelaFinancas(onConfig = irConfig, onAvatar = irPerfil) }
-            composable(Rotas.AGENDA) { TelaAgenda(onConfig = irConfig, onAvatar = irPerfil) }
+            composable(Rotas.AGENDA) {
+                val equipeVm = viewModelDoApp { EquipeViewModel(it.equipeRepository) }
+                val equipe by equipeVm.estado.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { equipeVm.carregar() }
+                TelaAgenda(onConfig = irConfig, onAvatar = irPerfil, responsaveis = equipe.membros.map { it.nomeCompleto })
+            }
+
             composable(Rotas.CONFIG) {
                 TelaConfiguracoes(
                     onVoltar = { nav.popBackStack() },
@@ -154,43 +217,69 @@ fun GerenciaCaoApp() {
                     onParcerias = irParcerias,
                     onMinhaConta = irPerfil,
                     onAbrigo = { nav.navigate(Rotas.ABRIGO) },
+                    onSair = sessaoVm::sair,
                 )
             }
-            composable(Rotas.ABRIGO) { TelaAbrigo(onVoltar = { nav.popBackStack() }) }
+            composable(Rotas.ABRIGO) {
+                val abrigoVm = viewModelDoApp { AbrigoViewModel(it.abrigoRepository) }
+                val equipeVm = viewModelDoApp { EquipeViewModel(it.equipeRepository) }
+                val abrigo by abrigoVm.estado.collectAsStateWithLifecycle()
+                val equipe by equipeVm.estado.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) {
+                    abrigoVm.carregar()
+                    equipeVm.carregar()
+                }
+                TelaAbrigo(abrigo, equipe.membros, onVoltar = { nav.popBackStack() }, onTentarNovamente = abrigoVm::carregar)
+            }
             composable(Rotas.PARCERIAS) { TelaParcerias(onVoltar = { nav.popBackStack() }) }
+            composable(Rotas.CONEXOES) { TelaConexao(onVoltar = { nav.popBackStack() }) }
+
             composable(Rotas.EQUIPE) {
+                val vm = viewModelDoApp { EquipeViewModel(it.equipeRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { vm.carregar() }
                 TelaEquipe(
+                    estado = ui,
                     onVoltar = { nav.popBackStack() },
                     onAbrirMembro = { id -> nav.navigate(Rotas.perfilMembro(id)) },
                     onAdicionar = { nav.navigate(Rotas.ADICIONAR_MEMBRO) },
+                    onTentarNovamente = vm::carregar,
                 )
             }
-            composable(Rotas.ADICIONAR_MEMBRO) { TelaAdicionarMembro(onVoltar = { nav.popBackStack() }) }
-            composable(
-                route = Rotas.PERFIL_MEMBRO,
-                arguments = listOf(navArgument("id") { type = NavType.IntType }),
-            ) { backEntry ->
-                val id = backEntry.arguments?.getInt("id") ?: 0
+            composable(Rotas.ADICIONAR_MEMBRO) {
+                val vm = viewModelDoApp { ConviteViewModel(it.equipeRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
+                TelaAdicionarMembro(estado = ui, onConvidar = vm::convidar, onVoltar = { nav.popBackStack() }, onFecharConvite = vm::fecharConvite)
+            }
+            composable(Rotas.PERFIL_MEMBRO, arguments = listOf(navArgument("id") { type = NavType.StringType })) { be ->
+                val id = be.arguments?.getString("id").orEmpty()
+                val vm = viewModelDoApp { MembroViewModel(it.equipeRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
+                LaunchedEffect(id) { vm.carregar(id) }
                 TelaPerfilMembro(
-                    id = id,
+                    estado = ui,
                     onVoltar = { nav.popBackStack() },
                     onEditar = { nav.navigate(Rotas.editarMembro(id)) },
+                    onTentarNovamente = { vm.carregar(id) },
                 )
             }
-            composable(
-                route = Rotas.EDITAR_MEMBRO,
-                arguments = listOf(navArgument("id") { type = NavType.IntType }),
-            ) { backEntry ->
-                val id = backEntry.arguments?.getInt("id") ?: 0
+            composable(Rotas.EDITAR_MEMBRO, arguments = listOf(navArgument("id") { type = NavType.StringType })) { be ->
+                val id = be.arguments?.getString("id").orEmpty()
+                val vm = viewModelDoApp { MembroViewModel(it.equipeRepository) }
+                val ui by vm.estado.collectAsStateWithLifecycle()
+                LaunchedEffect(id) { vm.carregar(id) }
                 TelaEditarMembro(
-                    id = id,
+                    estado = ui,
                     onVoltar = { nav.popBackStack() },
+                    onSalvar = { alteracao -> vm.salvar(id, alteracao) },
+                    onRemover = { vm.remover(id) },
+                    onSalvo = { nav.popBackStack() },
                     onRemovido = {
-                        // volta para a lista da Equipe se ela estiver na pilha; senão, para a tela anterior ao perfil
-                        if (!nav.popBackStack(Rotas.EQUIPE, inclusive = false)) {
-                            nav.popBackStack(Rotas.PERFIL_MEMBRO, inclusive = true)
-                        }
+                        // Removeu a própria conta: sai. Removeu outra pessoa: volta para a lista da Equipe.
+                        if (id == usuario?.id) sessaoVm.sair()
+                        else if (!nav.popBackStack(Rotas.EQUIPE, inclusive = false)) nav.popBackStack(Rotas.PERFIL_MEMBRO, inclusive = true)
                     },
+                    onTentarNovamente = { vm.carregar(id) },
                 )
             }
         }
@@ -233,9 +322,7 @@ private fun BarraInferior(rotaAtual: String?, onSelecionar: (String) -> Unit) {
                         modifier = Modifier.size(34.dp),
                         colorFilter = if (selecionado) ColorFilter.tint(Cores.Marrom) else null,
                     )
-                    if (selecionado) {
-                        Text(item.rotulo, color = Cores.Marrom, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
+                    if (selecionado) Text(item.rotulo, color = Cores.Marrom, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

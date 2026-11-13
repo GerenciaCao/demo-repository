@@ -33,91 +33,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.gerenciacao.R
+import com.example.gerenciacao.domain.model.Abrigo
+import com.example.gerenciacao.domain.model.Membro
 import com.example.gerenciacao.ui.*
+import com.example.gerenciacao.ui.componentes.EstadoCarregando
+import com.example.gerenciacao.ui.componentes.EstadoErro
+import com.example.gerenciacao.ui.viewmodel.UiAbrigo
 
 private val Dourado = Color(0xFFE6A03A)
 private val Pessego = Color(0xFFFFC983)
 
 /**
  * Informações do abrigo: foto no topo, painel creme com nome, localização, história,
- * números (animais, capacidade, vagas), contato e equipe.
+ * números (animais, capacidade, vagas), contato e equipe. Os dados vêm da API pelo ViewModel.
  */
 @Composable
-fun TelaAbrigo(onVoltar: () -> Unit) {
+fun TelaAbrigo(estado: UiAbrigo, equipe: List<Membro>, onVoltar: () -> Unit, onTentarNovamente: () -> Unit) {
+    val abrigo = estado.abrigo
     Box(Modifier.fillMaxSize().background(Cores.Creme)) {
-        Image(
-            painter = painterResource(R.drawable.abrigo_foto),
-            contentDescription = "Foto do abrigo",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().height(310.dp),
-        )
-
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Spacer(Modifier.height(284.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 700.dp)
-                    .clip(RoundedCornerShape(topStart = 44.dp, topEnd = 44.dp))
-                    .background(Cores.Creme)
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 24.dp)
-                    .navigationBarsPadding()
-                    .padding(bottom = 24.dp),
-            ) {
-                Text(AbrigoMock.nome, fontSize = 28.sp, fontWeight = FontWeight.Black, color = Cores.Marrom)
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Cores.Marrom, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(AbrigoMock.endereco, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Dourado)
-                    Spacer(Modifier.width(14.dp))
-                    Box(Modifier.size(9.dp).clip(CircleShape).background(Cores.Marrom))
-                    Spacer(Modifier.width(6.dp))
-                    Text(AbrigoMock.distancia, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Dourado)
-                }
-
-                Text(
-                    AbrigoMock.descricao,
-                    fontSize = 15.sp,
-                    lineHeight = 25.sp,
-                    textAlign = TextAlign.Justify,
-                    color = Cores.Marrom,
-                    modifier = Modifier.padding(top = 18.dp),
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    CartaoNumero(AbrigoMock.animais, "Animais Totais", Modifier.weight(1f))
-                    CartaoNumero(AbrigoMock.capacidade, "Capacidade", Modifier.weight(1f))
-                    CartaoNumero(AbrigoMock.vagas, "Disponíveis", Modifier.weight(1f))
-                }
-
-                TituloBlocoAbrigo("Contato")
-                LinhaContato(Icons.Filled.Email, AbrigoMock.email)
-                LinhaContato(Icons.Filled.Phone, AbrigoMock.telefone)
-                LinhaContato(Icons.Outlined.LocationOn, AbrigoMock.enderecoCompleto)
-
-                TituloBlocoAbrigo("Equipe")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(EquipeMock.membros, key = { it.id }) { membro ->
-                        Column(Modifier.width(84.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            AvatarMembro(membro.foto, tamanho = 76.dp)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                membro.nomeCompleto,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Cores.Marrom,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
+        if (abrigo == null) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().padding(top = 64.dp)) {
+                if (estado.carregando) EstadoCarregando() else EstadoErro(estado.erro ?: "Não foi possível carregar.", onTentarNovamente)
             }
+        } else {
+            ConteudoAbrigo(abrigo, equipe)
         }
 
         // O protótipo não mostra seta de voltar sobre a foto; este botão é necessário para navegar.
@@ -132,6 +71,69 @@ fun TelaAbrigo(onVoltar: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Voltar", tint = Cores.Marrom, modifier = Modifier.size(28.dp))
+        }
+    }
+}
+
+/** Foto e painel com todas as informações do [abrigo]. */
+@Composable
+private fun ConteudoAbrigo(abrigo: Abrigo, equipe: List<Membro>) {
+    Image(
+        painter = painterResource(R.drawable.abrigo_foto), // TODO: foto do abrigo vinda do banco (endpoint de fotos)
+        contentDescription = "Foto do abrigo",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxWidth().height(310.dp),
+    )
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Spacer(Modifier.height(284.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 700.dp)
+                .clip(RoundedCornerShape(topStart = 44.dp, topEnd = 44.dp))
+                .background(Cores.Creme)
+                .padding(horizontal = 20.dp)
+                .padding(top = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
+        ) {
+            Text(abrigo.nome, fontSize = 28.sp, fontWeight = FontWeight.Black, color = Cores.Marrom)
+            Spacer(Modifier.height(6.dp))
+            if (abrigo.endereco.isNotBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Cores.Marrom, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(abrigo.endereco, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Dourado)
+                    // TODO: distância até o usuário (precisa da localização do aparelho)
+                }
+            }
+            Text(
+                abrigo.descricao.ifBlank { "Este abrigo ainda não escreveu a sua história." },
+                fontSize = 15.sp,
+                lineHeight = 25.sp,
+                textAlign = TextAlign.Justify,
+                color = Cores.Marrom,
+                modifier = Modifier.padding(top = 18.dp),
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                CartaoNumero(abrigo.animaisTotais, "Animais Totais", Modifier.weight(1f))
+                CartaoNumero(abrigo.capacidade, "Capacidade", Modifier.weight(1f))
+                CartaoNumero(abrigo.vagas, "Disponíveis", Modifier.weight(1f))
+            }
+            TituloBlocoAbrigo("Contato")
+            LinhaContato(Icons.Filled.Email, abrigo.email.ifBlank { "—" })
+            LinhaContato(Icons.Filled.Phone, abrigo.telefone.ifBlank { "—" })
+            LinhaContato(Icons.Outlined.LocationOn, abrigo.endereco.ifBlank { "—" })
+            TituloBlocoAbrigo("Equipe")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                items(equipe, key = { it.id }) { membro ->
+                    Column(Modifier.width(84.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        AvatarMembro(null, tamanho = 76.dp) // TODO: foto do membro
+                        Spacer(Modifier.height(6.dp))
+                        Text(membro.nomeCompleto, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
         }
     }
 }

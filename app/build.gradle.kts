@@ -2,6 +2,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -22,7 +23,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Emulador -> API rodando no seu computador (HTTP liberado só no debug: app/src/debug)
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/\"")
+        }
         release {
+            // TROQUE pelo endereço HTTPS da API quando ela for publicada
+            buildConfigField("String", "API_BASE_URL", "\"https://api.gerenciacao.example/\"")
             isMinifyEnabled = true   // ofusca e reduz o código no APK de release
             isShrinkResources = true
             proguardFiles(
@@ -39,6 +46,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -58,6 +66,16 @@ dependencies {
 
     // Navegação entre telas
     implementation(libs.androidx.navigation.compose)
+
+    // ViewModel e estado com ciclo de vida (camada de apresentação)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // Rede (camada de dados): Retrofit + OkHttp + kotlinx.serialization
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

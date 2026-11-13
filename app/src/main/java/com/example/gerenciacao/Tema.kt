@@ -63,6 +63,7 @@ object Cores {
     val CinzaCampo = Color(0xFFD9D9D9)
     val CinzaTexto = Color(0xFF7A7A7A)
     val VermelhoBotao = Color(0xFFD96B6B)
+    val VermelhoEscuro = Color(0xFF9B1C1C)
     val CinzaAvatar = Color(0xFFB7C9D3)
 }
 
@@ -195,9 +196,10 @@ fun IconeConfig(onClick: () -> Unit = {}, comFundo: Boolean = true) {
 }
 
 @Composable
-fun BotaoLaranja(texto: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun BotaoLaranja(texto: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.fillMaxWidth().height(50.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Cores.Laranja, contentColor = Cores.Marrom),
