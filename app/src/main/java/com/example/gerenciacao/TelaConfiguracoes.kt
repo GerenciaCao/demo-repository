@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -44,6 +45,7 @@ fun TelaConfiguracoes(
     onParcerias: () -> Unit = {},
     onMinhaConta: () -> Unit = {},
     onAbrigo: () -> Unit = {},
+    onSair: () -> Unit = {},
 ) {
     val contas = listOf(
         ItemConfig("Minha Conta", Icons.Filled.Person, onMinhaConta),
@@ -55,6 +57,7 @@ fun TelaConfiguracoes(
         ItemConfig("Aparência e Acessibilidade", Icons.Filled.Palette),
         ItemConfig("Sobre", Icons.Filled.Info),
         ItemConfig("Ajuda", Icons.AutoMirrored.Filled.Help),
+        ItemConfig("Sair da conta", Icons.AutoMirrored.Filled.ExitToApp, onSair),
     )
 
     Column(Modifier.fillMaxSize().background(Cores.Laranja)) {

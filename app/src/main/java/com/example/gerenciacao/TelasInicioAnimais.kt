@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.gerenciacao.R
+import com.example.gerenciacao.domain.model.Abrigo
 import com.example.gerenciacao.ui.*
 import kotlin.math.roundToInt
 
@@ -45,6 +46,8 @@ private val AzulBorda = Color(0xFF4D9EFF)
 
 @Composable
 fun TelaInicio(
+    nomeUsuario: String,
+    abrigo: Abrigo?,
     onVerAgenda: () -> Unit,
     onVerDados: () -> Unit,
     onConfig: () -> Unit = {},
@@ -52,14 +55,14 @@ fun TelaInicio(
     onParcerias: () -> Unit = {},
     onConexoes: () -> Unit = {},
 ) {
-    val nomeUsuario = "Helena" // TODO: vir da conta logada (ViewModel)
     val diasSemana = listOf("D", "S", "T", "Q", "Q", "S", "S")
     val diasMes = listOf(25, 26, 27, 28, 29, 30, 31) // TODO: calcular a semana atual com java.time
     val diaSelecionado = 28
     val diasComCompromisso = setOf(31) // TODO: vir da agenda (dias com eventos)
 
-    val capacidade = AbrigoMock.animais + AbrigoMock.vagas
-    val percentual = if (capacidade == 0) 0 else (AbrigoMock.animais * 100f / capacidade).roundToInt()
+    val animaisTotais = abrigo?.animaisTotais ?: 0
+    val vagas = abrigo?.vagas ?: 0
+    val percentual = abrigo?.ocupacaoPercentual ?: 0
 
     BaseTela(
         onConfig = onConfig,
@@ -137,11 +140,11 @@ fun TelaInicio(
                         Spacer(Modifier.width(18.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             CartaoNumeroInicio(
-                                "Vagas disponíveis", AbrigoMock.vagas,
+                                "Vagas disponíveis", vagas,
                                 Brush.horizontalGradient(listOf(Color(0xFFFFE6CC), Cores.Creme)), Cores.Laranja,
                             )
                             CartaoNumeroInicio(
-                                "Total de animais", AbrigoMock.animais,
+                                "Total de animais", animaisTotais,
                                 Brush.horizontalGradient(listOf(Color(0xFFDCEBFA), Color(0xFFB9D9F7))), Cores.AzulTitulo,
                             )
                         }

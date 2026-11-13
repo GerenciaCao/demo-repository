@@ -232,7 +232,7 @@ data class Evento(
 )
 
 @Composable
-fun TelaAgenda(onConfig: () -> Unit = {}, onAvatar: () -> Unit = {}) {
+fun TelaAgenda(onConfig: () -> Unit = {}, onAvatar: () -> Unit = {}, responsaveis: List<String> = emptyList()) {
     var mes by remember { mutableStateOf(YearMonth.of(2026, 10)) } // TODO: YearMonth.now()
     var eventos by remember {
         mutableStateOf(
@@ -247,7 +247,6 @@ fun TelaAgenda(onConfig: () -> Unit = {}, onAvatar: () -> Unit = {}) {
 
     // Dados de exemplo para os seletores (TODO: vir da API)
     val animais = remember { listOf("Gabi", "Bobby", "Oreo", "Mel", "Scooby") }
-    val responsaveis = EquipeMock.membros.map { it.nomeCompleto }
 
     val eventosDoMes = eventos
         .filter { YearMonth.from(it.data) == mes }

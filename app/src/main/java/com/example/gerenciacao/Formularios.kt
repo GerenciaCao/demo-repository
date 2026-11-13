@@ -193,9 +193,11 @@ fun BotaoAcao(
     modifier: Modifier = Modifier,
     icone: ImageVector? = null,
     corFundo: Color = Cores.Laranja,
+    enabled: Boolean = true,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = corFundo, contentColor = Cores.Creme),

@@ -1,6 +1,5 @@
 package com.example.gerenciacao.ui.telas
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -28,25 +28,41 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.gerenciacao.R
+import com.example.gerenciacao.domain.model.AtualizacaoMembro
+import com.example.gerenciacao.domain.model.Cargo
+import com.example.gerenciacao.domain.model.Membro
+import com.example.gerenciacao.domain.model.NovoMembro
+import com.example.gerenciacao.domain.model.Permissao
 import com.example.gerenciacao.ui.*
+import com.example.gerenciacao.ui.componentes.EstadoCarregando
+import com.example.gerenciacao.ui.componentes.EstadoErro
+import com.example.gerenciacao.ui.componentes.MensagemErro
+import com.example.gerenciacao.ui.viewmodel.UiConvite
+import com.example.gerenciacao.ui.viewmodel.UiEquipe
+import com.example.gerenciacao.ui.viewmodel.UiMembro
 
 // ================================================================ EQUIPE (lista)
 
+/** Lista de membros do abrigo, com busca. Os dados vêm da API pelo ViewModel. */
 @Composable
 fun TelaEquipe(
+    estado: UiEquipe,
     onVoltar: () -> Unit,
-    onAbrirMembro: (Int) -> Unit,
+    onAbrirMembro: (String) -> Unit,
     onAdicionar: () -> Unit,
+    onTentarNovamente: () -> Unit,
 ) {
     var busca by remember { mutableStateOf("") }
-    val lista = EquipeMock.membros.filter { it.nomeCompleto.contains(busca, ignoreCase = true) }
+    val lista = estado.membros.filter { it.nomeCompleto.contains(busca, ignoreCase = true) }
 
     BaseTelaAzul(onVoltar = onVoltar) {
         LazyColumn(
@@ -75,7 +91,7 @@ fun TelaEquipe(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
                     color = Cores.Marrom,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .fillMaxWidth()
@@ -87,6 +103,8 @@ fun TelaEquipe(
                 )
             }
             item { Text("Membros", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom, modifier = Modifier.padding(top = 6.dp)) }
+            if (estado.carregando && estado.membros.isEmpty()) item { EstadoCarregando() }
+            if (estado.erro != null && estado.membros.isEmpty()) item { EstadoErro(estado.erro, onTentarNovamente) }
             items(lista, key = { it.id }) { membro ->
                 Row(
                     modifier = Modifier
@@ -98,11 +116,11 @@ fun TelaEquipe(
                         .padding(horizontal = 6.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AvatarMembro(membro.foto, tamanho = 60.dp)
+                    AvatarMembro(null, tamanho = 60.dp) // TODO: foto do membro (endpoint de fotos)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(membro.nomeCompleto, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom)
-                        Text(membro.cargoRotulo, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Cores.CinzaTexto)
+                        Text(membro.cargo.rotulo, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Cores.CinzaTexto)
                     }
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Cores.Marrom, modifier = Modifier.padding(end = 8.dp))
                 }
@@ -117,7 +135,6 @@ fun TelaEquipe(
 @Composable
 private fun CartaoMembro(
     modifier: Modifier = Modifier,
-    foto: Int? = null,
     canto: @Composable BoxScope.() -> Unit = {},
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
@@ -132,7 +149,7 @@ private fun CartaoMembro(
             content = conteudo,
         )
         AvatarMembro(
-            foto = foto,
+            foto = null, // TODO: foto do membro
             tamanho = 116.dp,
             modifier = Modifier.align(Alignment.TopCenter).border(3.dp, Color.White, CircleShape),
         )
@@ -140,6 +157,7 @@ private fun CartaoMembro(
     }
 }
 
+/** Seta de voltar no topo das telas de perfil. */
 @Composable
 private fun TopoVoltar(onVoltar: () -> Unit) {
     Icon(
@@ -150,106 +168,100 @@ private fun TopoVoltar(onVoltar: () -> Unit) {
     )
 }
 
+/** Título de bloco ("Informações Pessoais", "Cargo"...). */
 @Composable
 private fun TituloBloco(texto: String) {
     Text(texto, fontSize = 24.sp, color = Cores.Marrom, modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
 }
 
+/** Perfil de um membro (somente leitura) com o botão Editar Perfil. */
 @Composable
-fun TelaPerfilMembro(id: Int, onVoltar: () -> Unit, onEditar: () -> Unit) {
-    val membro = EquipeMock.buscar(id)
-    if (membro == null) {
-        LaunchedEffect(Unit) { onVoltar() }
-        return
-    }
-
+fun TelaPerfilMembro(estado: UiMembro, onVoltar: () -> Unit, onEditar: () -> Unit, onTentarNovamente: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Cores.Creme).statusBarsPadding()) {
         TopoVoltar(onVoltar)
-        Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
-        ) {
-            CartaoMembro(foto = membro.foto) {
-                Text(membro.nomeCompleto, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom)
-                Text(membro.cargoRotulo, fontSize = 20.sp, color = Cores.CinzaTexto)
-            }
-            TituloBloco("Informações Pessoais")
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(horizontal = 10.dp)) {
-                CampoLeitura("E-mail", membro.email)
-                CampoLeitura("Telefone", membro.telefone)
-                CampoLeitura("Endereço", membro.endereco)
-            }
-            TituloBloco("Permissões de Acesso")
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(horizontal = 10.dp)) {
-                if (membro.permissoes.isEmpty()) {
-                    Text("Nenhuma permissão concedida.", fontSize = 16.sp, color = Cores.CinzaTexto)
+        val membro = estado.membro
+        when {
+            membro != null -> {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
+                    CartaoMembro {
+                        Text(membro.nomeCompleto, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom)
+                        Text(membro.cargo.rotulo, fontSize = 20.sp, color = Cores.CinzaTexto)
+                    }
+                    TituloBloco("Informações Pessoais")
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(horizontal = 10.dp)) {
+                        CampoLeitura("E-mail", membro.email)
+                        CampoLeitura("Telefone", membro.telefone)
+                        CampoLeitura("Endereço", membro.endereco)
+                    }
+                    TituloBloco("Permissões de Acesso")
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(horizontal = 10.dp)) {
+                        if (membro.permissoes.isEmpty()) Text("Nenhuma permissão concedida.", fontSize = 16.sp, color = Cores.CinzaTexto)
+                        Permissao.values().filter { it in membro.permissoes }.forEach {
+                            Text(
+                                it.rotulo,
+                                fontSize = 18.sp,
+                                color = Cores.Marrom,
+                                modifier = Modifier.fillMaxWidth().background(Cores.AzulCinza, RoundedCornerShape(4.dp)).padding(horizontal = 20.dp, vertical = 14.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
                 }
-                Permissao.values().filter { it in membro.permissoes }.forEach {
-                    Text(
-                        it.rotulo,
-                        fontSize = 18.sp,
-                        color = Cores.Marrom,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Cores.AzulCinza, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                    )
-                }
+                BotaoAcao("Editar Perfil", onEditar, icone = Icons.Filled.Edit, modifier = Modifier.align(Alignment.CenterHorizontally).width(270.dp))
+                Spacer(Modifier.navigationBarsPadding().height(16.dp))
             }
-            Spacer(Modifier.height(16.dp))
+            estado.carregando -> EstadoCarregando()
+            else -> EstadoErro(estado.erro ?: "Não foi possível carregar.", onTentarNovamente)
         }
-        BotaoAcao(
-            texto = "Editar Perfil",
-            onClick = onEditar,
-            icone = Icons.Filled.Edit,
-            modifier = Modifier.align(Alignment.CenterHorizontally).width(270.dp).padding(bottom = 0.dp),
-        )
-        Spacer(Modifier.navigationBarsPadding().height(16.dp))
     }
 }
 
 // ================================================================ EDITAR MEMBRO
 
+/** Edição de um membro: cargo, dados pessoais e permissões. Salvar e Remover chamam a API pelo ViewModel. */
 @Composable
-fun TelaEditarMembro(id: Int, onVoltar: () -> Unit, onRemovido: () -> Unit) {
-    val original = EquipeMock.buscar(id)
+fun TelaEditarMembro(
+    estado: UiMembro,
+    onVoltar: () -> Unit,
+    onSalvar: (AtualizacaoMembro) -> Unit,
+    onRemover: () -> Unit,
+    onSalvo: () -> Unit,
+    onRemovido: () -> Unit,
+    onTentarNovamente: () -> Unit,
+) {
+    LaunchedEffect(estado.concluido) { if (estado.concluido) onSalvo() }
+    LaunchedEffect(estado.removido) { if (estado.removido) onRemovido() }
+
+    val original = estado.membro
     if (original == null) {
-        LaunchedEffect(Unit) { onVoltar() }
+        Column(Modifier.fillMaxSize().background(Cores.Creme).statusBarsPadding()) {
+            TopoVoltar(onVoltar)
+            if (estado.carregando) EstadoCarregando() else EstadoErro(estado.erro ?: "Não foi possível carregar.", onTentarNovamente)
+        }
         return
     }
 
-    var cargo by remember(id) { mutableStateOf<Cargo?>(original.cargo) }
-    var email by remember(id) { mutableStateOf(original.email) }
-    var telefone by remember(id) { mutableStateOf(original.telefone) }
-    var endereco by remember(id) { mutableStateOf(original.endereco) }
-    var permissoes by remember(id) { mutableStateOf(original.permissoes) }
+    var cargo by remember(original.id) { mutableStateOf<Cargo?>(original.cargo) }
+    var email by remember(original.id) { mutableStateOf(original.email) }
+    var telefone by remember(original.id) { mutableStateOf(original.telefone) }
+    var endereco by remember(original.id) { mutableStateOf(original.endereco) }
+    var permissoes by remember(original.id) { mutableStateOf(original.permissoes) }
     var confirmarExclusao by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(Cores.Creme).statusBarsPadding().imePadding()) {
-        Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
-        ) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
             Spacer(Modifier.height(30.dp))
             CartaoMembro(
-                foto = original.foto,
                 canto = {
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Editar nome",
                         tint = Cores.Marrom,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 74.dp, end = 18.dp)
-                            .size(22.dp)
-                            .clickable { /* TODO: editar nome do membro */ },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 74.dp, end = 18.dp).size(22.dp).clickable { /* TODO: editar nome */ },
                     )
                 },
             ) {
-                Text(
-                    "Editar Foto",
-                    fontSize = 12.sp,
-                    color = Cores.Marrom,
-                    modifier = Modifier.clickable { /* TODO: escolher foto (galeria/câmera) */ },
-                )
+                Text("Editar Foto", fontSize = 12.sp, color = Cores.Marrom, modifier = Modifier.clickable { /* TODO: escolher foto */ })
                 Text(original.nomeCompleto, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Cores.Marrom)
             }
 
@@ -258,7 +270,7 @@ fun TelaEditarMembro(id: Int, onVoltar: () -> Unit, onRemovido: () -> Unit) {
                 SeletorLista(
                     opcoes = Cargo.values().toList(),
                     selecionado = cargo,
-                    rotulo = { it.rotulo(original.feminino) },
+                    rotulo = { it.rotulo },
                     aoSelecionar = { cargo = it },
                     dica = "Selecione um Cargo",
                 )
@@ -277,37 +289,22 @@ fun TelaEditarMembro(id: Int, onVoltar: () -> Unit, onRemovido: () -> Unit) {
             TituloBloco("Permissões de Acesso")
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(horizontal = 10.dp)) {
                 Permissao.values().forEach { p ->
-                    LinhaPermissao(p.rotulo, p in permissoes) {
-                        permissoes = if (p in permissoes) permissoes - p else permissoes + p
-                    }
+                    LinhaPermissao(p.rotulo, p in permissoes) { permissoes = if (p in permissoes) permissoes - p else permissoes + p }
                 }
             }
+            estado.erroAcao?.let { MensagemErro(it, Modifier.padding(horizontal = 10.dp)) }
             Spacer(Modifier.height(18.dp))
             Row(Modifier.padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 BotaoAcao("Cancelar", onVoltar, Modifier.weight(1f))
                 BotaoAcao(
-                    "Salvar",
-                    onClick = {
-                        EquipeMock.atualizar(
-                            original.copy(
-                                cargo = cargo ?: original.cargo,
-                                email = email.trim(),
-                                telefone = telefone.trim(),
-                                endereco = endereco.trim(),
-                                permissoes = permissoes,
-                            ),
-                        )
-                        onVoltar()
-                    },
+                    texto = if (estado.salvando) "Salvando..." else "Salvar",
+                    onClick = { onSalvar(AtualizacaoMembro(email = email, telefone = telefone, endereco = endereco, cargo = cargo, permissoes = permissoes)) },
                     modifier = Modifier.weight(1f),
+                    enabled = !estado.salvando,
                 )
             }
             Spacer(Modifier.height(12.dp))
-            BotaoAcao(
-                "Remover Conta",
-                onClick = { confirmarExclusao = true },
-                modifier = Modifier.align(Alignment.CenterHorizontally).width(270.dp),
-            )
+            BotaoAcao("Remover Conta", { confirmarExclusao = true }, Modifier.align(Alignment.CenterHorizontally).width(270.dp), enabled = !estado.salvando)
             Spacer(Modifier.navigationBarsPadding().height(20.dp))
         }
     }
@@ -317,13 +314,13 @@ fun TelaEditarMembro(id: Int, onVoltar: () -> Unit, onRemovido: () -> Unit) {
             onCancelar = { confirmarExclusao = false },
             onConfirmar = {
                 confirmarExclusao = false
-                EquipeMock.remover(id) // TODO: chamar a API de remoção (RF07)
-                onRemovido()
+                onRemover()
             },
         )
     }
 }
 
+/** Diálogo de confirmação "Excluir Conta". */
 @Composable
 private fun DialogoExcluirConta(onCancelar: () -> Unit, onConfirmar: () -> Unit) {
     Dialog(onDismissRequest = onCancelar, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -358,19 +355,24 @@ private fun DialogoExcluirConta(onCancelar: () -> Unit, onConfirmar: () -> Unit)
 
 // ================================================================ ADICIONAR MEMBRO
 
+/** Formulário "Adicionar Membro". Ao salvar, a API cria o convite e o código aparece num aviso. */
 @Composable
-fun TelaAdicionarMembro(onVoltar: () -> Unit) {
+fun TelaAdicionarMembro(
+    estado: UiConvite,
+    onConvidar: (novo: NovoMembro?, nome: String, email: String) -> Unit,
+    onVoltar: () -> Unit,
+    onFecharConvite: () -> Unit,
+) {
+    LaunchedEffect(estado.concluido) { if (estado.concluido) onVoltar() }
+
     var nome by remember { mutableStateOf("") }
     var sobrenome by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var telefone by remember { mutableStateOf("") }
     var endereco by remember { mutableStateOf("") }
     var cargo by remember { mutableStateOf<Cargo?>(null) }
-    var tentouSalvar by remember { mutableStateOf(false) }
-
     val fundo = Cores.AzulCampo
     val borda = Cores.AmareloBorda
-    val faltaAlgo = nome.isBlank() || !email.contains("@") || cargo == null
 
     Column(
         modifier = Modifier
@@ -394,15 +396,10 @@ fun TelaAdicionarMembro(onVoltar: () -> Unit) {
                     imageVector = Icons.Filled.Pets,
                     contentDescription = null,
                     tint = Cores.Laranja,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = x.dp, y = y.dp)
-                        .size(22.dp)
-                        .rotate(giro)
-                        .alpha(0.25f),
+                    modifier = Modifier.align(Alignment.TopStart).offset(x = x.dp, y = y.dp).size(22.dp).rotate(giro).alpha(0.25f),
                 )
             }
-            Image(
+            androidx.compose.foundation.Image(
                 painter = painterResource(R.drawable.logo_laranja),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
@@ -426,48 +423,64 @@ fun TelaAdicionarMembro(onVoltar: () -> Unit) {
         SeletorLista(
             opcoes = Cargo.values().toList(),
             selecionado = cargo,
-            rotulo = { it.rotulo() },
+            rotulo = { it.rotulo },
             aoSelecionar = { cargo = it },
             dica = "Selecione um Cargo",
             fundo = fundo,
             borda = borda,
         )
 
-        if (tentouSalvar && faltaAlgo) {
-            Text(
-                "Preencha o nome, um e-mail válido e o cargo.",
-                fontSize = 14.sp,
-                color = Cores.VermelhoBotao,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-        }
+        estado.erro?.let { MensagemErro(it) }
 
         Spacer(Modifier.height(30.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
             BotaoAcao("Cancelar", onVoltar, Modifier.weight(1f))
             BotaoAcao(
-                "Salvar",
+                texto = if (estado.salvando) "Salvando..." else "Salvar",
                 onClick = {
-                    tentouSalvar = true
-                    if (!faltaAlgo) {
-                        EquipeMock.adicionar(
-                            Membro(
-                                id = 0, // o id real é definido ao adicionar
-                                nome = nome.trim(),
-                                sobrenome = sobrenome.trim(),
-                                email = email.trim(),
-                                telefone = telefone.trim(),
-                                endereco = endereco.trim(),
-                                cargo = cargo!!,
-                                permissoes = setOf(Permissao.VER_FICHAS),
-                            ),
-                        ) // TODO: chamar a API / convite por token (RF06)
-                        onVoltar()
-                    }
+                    val novo = cargo?.let { NovoMembro(nome, sobrenome, email, telefone, endereco, it) }
+                    onConvidar(novo, nome, email)
                 },
                 modifier = Modifier.weight(1f),
+                enabled = !estado.salvando,
             )
         }
         Spacer(Modifier.navigationBarsPadding().height(24.dp))
+    }
+
+    estado.codigoConvite?.let { DialogoConvite(it, estado.emailConvidado, onFecharConvite) }
+}
+
+/** Aviso com o código do convite (válido por 7 dias). Enquanto não há envio por e-mail, quem convidou repassa o código. */
+@Composable
+private fun DialogoConvite(codigo: String, email: String, onFechar: () -> Unit) {
+    Dialog(onDismissRequest = onFechar, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 28.dp)
+                .fillMaxWidth()
+                .shadow(8.dp, RoundedCornerShape(20.dp))
+                .background(Cores.AzulDialogo, RoundedCornerShape(20.dp))
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+        ) {
+            Text("Convite criado!", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            Spacer(Modifier.height(12.dp))
+            Text("Envie este código para $email. Ele vale por 7 dias e aparece só agora.", fontSize = 16.sp, color = Color.Black)
+            Spacer(Modifier.height(14.dp))
+            SelectionContainer {
+                Text(
+                    codigo,
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = Cores.Marrom,
+                    modifier = Modifier.fillMaxWidth().background(Cores.Creme, RoundedCornerShape(10.dp)).padding(12.dp),
+                )
+            }
+            Text("Toque e segure o código para copiar.", fontSize = 12.sp, color = Color.Black, modifier = Modifier.padding(top = 6.dp))
+            Spacer(Modifier.height(16.dp))
+            BotaoAcao("Entendi", onFechar, Modifier.fillMaxWidth())
+        }
     }
 }
